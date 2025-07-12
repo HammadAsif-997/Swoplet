@@ -1,0 +1,15 @@
+const APPROVAL_STATUS = {
+  PENDING: 0,
+  APPROVED: 1,
+  REJECTED: 2,
+  SOLD: 3,
+  HIDDEN: 4,
+};
+
+const DELETE_STATUS = {
+  ACTIVE: 0,
+  DELETED: 1
+};
+
+module.exports = { APPROVAL_STATUS, DELETE_STATUS };
+
