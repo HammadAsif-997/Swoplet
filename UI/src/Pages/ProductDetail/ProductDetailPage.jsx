@@ -1,28 +1,35 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import SearchBar from "../../components/Common/SearchBar";
 import React, { useState, useEffect } from "react";
 import { useApiRequest } from "../../../hooks/useApiRequest";
-import { BASE_URL, userId } from "../../constants/config";
+import { BASE_URL } from "../../constants/config";
 import LoadingState from "../../components/Common/LoadingState";
 import ErrorState from "../../components/Common/ErrorState";
 import { useParams, useNavigate } from "react-router-dom";
 import { initiateChatWithSeller } from "../../utils/chatUtils";
 import { ToastContainer, toast } from "react-toastify"; // Import toastify
 import "react-toastify/dist/ReactToastify.css"; // Import Toastify CSS
+import { useAuthRedirect } from "../../../hooks/useAuthRedirect";
+import { callApi } from "../../../utils/apiHandler";
+import ShareButton from "../../components/Common/ShareButton";
+import SellerReview from "../../components/ProductDetail/SellerReview";
 
 const ProductDetailPage = () => {
   const { productId } = useParams();
   const navigate = useNavigate();
 
-  // Get user ID from localStorage with fallback to config
-  const currentUserId = userId;
+  // Get user ID from localStorage - this will always get the current value
+  const currentUserId = localStorage.getItem('userId');
   console.log("Current User ID:", currentUserId);
-  
+
   const [mainImage, setMainImage] = useState(0);
   const [activeTab, setActiveTab] = useState("description");
   const [isAddingToFavourite, setIsAddingToFavourite] = useState(false);
   const [isProductInFavourite, setIsProductInFavourite] = useState(false);
   const [isContactingSeller, setIsContactingSeller] = useState(false);
+
+  const [predictedPrice, setPredictedPrice] = useState(null);
+  const [isPredicting, setIsPredicting] = useState(false);
+
 
   // Use API hook to fetch product details
   const {
@@ -76,34 +83,16 @@ const ProductDetailPage = () => {
           <ul className="list-disc pl-5">
             <li>Name: {product.creator.username}</li>
             <li>Contact: {product.creator.email}</li>
-
-            {/*Seller review section*/}
-            <li className="mt-4 mb-1 font-semibold text-blue-700">Seller Rating</li>
-            <li className="list-none p-0 m-0">
-              <div className="flex items-center gap-3 bg-blue-50 rounded-lg px-3 py-2 border border-blue-100 shadow-sm w-fit">
-                {/* Star rating display */}
-                <div className="flex items-center space-x-1">
-                  {[1,2,3,4,5].map(star => (
-                    <span
-                      key={star}
-                      className={`text-xl ${star <= (product.seller_reviews?.avg_rating ?? 0) ? 'text-yellow-400' : 'text-gray-300'}`}
-                    >
-                      ★
-                    </span>
-                  ))}
-                </div>
-                <span className="text-blue-700 font-bold text-base">
-                  {product.seller_reviews?.avg_rating ? product.seller_reviews.avg_rating.toFixed(1) : "No reviews yet"}
-                </span>
-                {product.seller_reviews?.total_rating && (
-                  <span className="ml-2 px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-xs font-semibold">
-                    {product.seller_reviews.total_rating} reviews
-                  </span>
-                )}
-              </div>
-            </li>
+            {product.creator.bio && <li>Bio: {product.creator.bio}</li>}
           </ul>
         );
+      case "seller review":
+        return (
+          <SellerReview
+            sellerId={product.created_by_id}
+            avgRating={product.seller_reviews?.avg_rating}
+          />
+        )
       default:
         return null;
     }
@@ -112,6 +101,7 @@ const ProductDetailPage = () => {
   // Function to handle "Add to Favourite" or "Remove from Favourite" button click
   const handleFavouriteToggle = async () => {
     // If not logged in, redirect to login
+
     if (!currentUserId) {
       navigate("/login");
       return;
@@ -202,6 +192,44 @@ const ProductDetailPage = () => {
     }
   };
 
+  const handlePredictPrice = async () => {
+    if (!product) return;
+    setIsPredicting(true);
+
+
+
+    try {
+      const response = await callApi({
+        url: "https://gsds-2025-team-6-flask.onrender.com/predict",
+        method: "POST",
+        body: {
+          Title: product.title ?? "",
+          Description: product.description ?? "",
+          Category: product.category?.name ?? "",
+          Condition: product.condition?.name ?? ""
+        }
+      });
+
+      if (response.success) {
+        // normalize result
+        const price =
+          response.data?.predicted_price ||
+          response.data?.price ||
+          response.data;
+
+        setPredictedPrice(price);
+      } else {
+        toast.error("Prediction failed: " + response.error);
+      }
+    } catch (err) {
+      console.error("Prediction error:", err);
+      toast.error("Failed to predict price. Please try again.");
+    } finally {
+      setIsPredicting(false);
+    }
+  };
+
+
   if (loading) return <LoadingState />;
   if (error || !product || product.length === 0) {
     return (
@@ -215,6 +243,8 @@ const ProductDetailPage = () => {
   // Split the tags into an array and render dynamically
   const tags = product.tags?.split(",") || [];
 
+
+
   return (
     <>
       <div className="w-full min-h-screen p-4 md:p-8 bg-white">
@@ -225,7 +255,7 @@ const ProductDetailPage = () => {
               <img
                 src={product.mediafiles[mainImage]?.file_path}
                 alt="Main"
-                className="w-full max-h-[500px] object-cover rounded-lg"
+                className="w-full max-h-[500px] object-contain rounded-lg"
               />
               <button
                 onClick={() =>
@@ -265,14 +295,13 @@ const ProductDetailPage = () => {
             {/* Tabs */}
             <div>
               <div className="flex gap-4 border-b">
-                {["description", "details", "seller"].map((tab) => (
+                {["description", "details", "seller", "seller review"].map((tab) => (
                   <button
                     key={tab}
                     onClick={() => setActiveTab(tab)}
-                    className={`py-2 px-4 capitalize ${
-                      activeTab === tab
-                        ? "border-b-2 border-blue-600 font-semibold text-blue-600"
-                        : "text-gray-500"
+                    className={`py-2 px-4 capitalize ${activeTab === tab
+                      ? "border-b-2 border-blue-600 font-semibold text-blue-600"
+                      : "text-gray-500"
                       }`}
                   >
                     {tab}
@@ -299,7 +328,7 @@ const ProductDetailPage = () => {
               ))}
             </div>
             <p className="text-lg font-semibold text-green-700">
-              £{product.price}
+              €{product.price}
             </p>
 
             {/* Contact Seller Button */}
@@ -328,15 +357,37 @@ const ProductDetailPage = () => {
                   : "Add to Favourite"}
             </button>
 
+            {/* Share Product Button */}
+            <ShareButton
+              productId={product.id}
+              productTitle={product.title}
+              variant="full"
+            />
+
+
+            {/* price prediction */}
             <div className="bg-yellow-100 p-4 rounded text-sm">
               <p className="font-medium mb-2">
                 Want to know avg. market price of this product?
               </p>
-              <button className="bg-yellow-400 text-white px-4 py-1 rounded shadow">
-                Predict Price
+              <button
+                onClick={handlePredictPrice}
+                disabled={isPredicting}
+                className="bg-yellow-400 text-white px-4 py-1 rounded shadow disabled:opacity-60"
+              >
+                {isPredicting ? "Predicting..." : "Predict Price"}
               </button>
-              <p className="mt-2 text-gray-700">£4.50 – £7.50</p>
+              <p className="mt-2 text-gray-700">
+                {predictedPrice == null
+                  ? "— no prediction yet —"
+                  : `€${parseFloat(predictedPrice).toFixed(2)}`}
+              </p>
             </div>
+
+
+
+
+
           </div>
         </div>
       </div>

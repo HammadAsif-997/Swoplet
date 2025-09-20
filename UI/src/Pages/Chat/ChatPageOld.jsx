@@ -59,8 +59,20 @@ const ContactList = () => {
                                 }`}
                             onClick={() => setActiveContactId(contact.id)}
                         >
-                            <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold mr-3">
-                                {contact.name.charAt(0).toUpperCase()}
+                            <div className="w-8 h-8 rounded-full mr-3 overflow-hidden">
+                                <img 
+                                    src={contact.avatar} 
+                                    alt={contact.name}
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                        // Fallback to initials if image fails to load
+                                        e.target.style.display = 'none';
+                                        e.target.nextSibling.style.display = 'flex';
+                                    }}
+                                />
+                                <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold" style={{display: 'none'}}>
+                                    {contact.name.charAt(0).toUpperCase()}
+                                </div>
                             </div>
                             <div className="flex-1 min-w-0">
                                 <div className="flex justify-between">

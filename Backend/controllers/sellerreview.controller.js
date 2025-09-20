@@ -96,4 +96,83 @@ exports.addSellerReview = async (req, res) => {
   } catch (err) {
     return res.error(err.message || 'Failed to add seller review', 500);
   }
-}; 
+};
+
+exports.getSellerReviews = async (req, res) => {
+  try {
+    const { seller_id } = req.params;
+    
+    if (!seller_id) {
+      return res.error('seller_id is required', 400);
+    }
+
+    const sellerIdNum = parseInt(seller_id);
+    if (isNaN(sellerIdNum)) {
+      return res.error('seller_id must be a valid number', 400);
+    }
+
+    const reviews = await sellerReview.findAll({
+      where: {
+        reviewee_id: sellerIdNum
+      },
+      include: [
+        {
+          model: user,
+          as: 'reviewer',
+          attributes: ['id', 'username']
+        },
+        {
+          model: sellerToReview,
+          as: 'toReview',
+          attributes: ['id', 'product_id'],
+          include: [
+            {
+              model: productlisting,
+              as: 'product',
+              attributes: ['id', 'title', 'location', 'description'],
+              include: [
+                {
+                  model: mediafile,
+                  as: 'mediafiles',
+                  attributes: ['file_path'],
+                  required: false,
+                  limit: 1
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      order: [['review_date', 'DESC']]
+    });
+
+    const formattedReviews = reviews.map(review => ({
+      id: review.id,
+      review_value: review.review_value,
+      review_comment: review.review_comment,
+      review_date: review.review_date,
+      reviewer: {
+        id: review.reviewer?.id,
+        username: review.reviewer?.username,
+      },
+      product: {
+        id: review.toReview?.product?.id,
+        title: review.toReview?.product?.title,
+        description: review.toReview?.product?.description,
+        location: review.toReview?.product?.location,
+        media_file: review.toReview?.product?.mediafiles && review.toReview.product.mediafiles.length > 0 
+          ? review.toReview.product.mediafiles[0].file_path 
+          : null
+      }
+    }));
+
+    return res.success('Seller reviews fetched successfully', {
+      seller_id: sellerIdNum,
+      total_reviews: formattedReviews.length,
+      reviews: formattedReviews
+    }, 200);
+
+  } catch (err) {
+    return res.error(err.message || 'Failed to fetch seller reviews', 500);
+  }
+};

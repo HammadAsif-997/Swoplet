@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import Button from "./Button";
+import ShareButton from "./ShareButton";
 function ProductCard({
   product,
   isInWishlistPage = false,
@@ -55,6 +56,15 @@ function ProductCard({
           alt={product.title}
           className="w-full h-full object-contain"
         />
+
+        {/* Share button overlay */}
+        <div className="absolute top-2 right-2">
+          <ShareButton 
+            productId={product.id} 
+            productTitle={product.title}
+            variant="icon"
+          />
+        </div>
 
         {/* Wishlist button overlay */}
         {/* {!isInWishlistPage && (

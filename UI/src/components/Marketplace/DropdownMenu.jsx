@@ -49,6 +49,12 @@ function DropdownMenu() {
           My Wishlist
         </Link>
         <Link
+            to="/to-rate"
+            className="block px-4 py-2 hover:bg-gray-100 text-gray-700"
+        >
+          Rate the sellers
+        </Link>
+        <Link
           to="/messages"
           className="block px-4 py-2 hover:bg-gray-100 text-gray-700"
         >

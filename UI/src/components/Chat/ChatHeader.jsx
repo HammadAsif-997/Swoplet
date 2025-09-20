@@ -2,7 +2,6 @@ import { MoreVertical, Flag, Trash2, CheckCircle, Package } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useContacts } from "../../context/ContactContext";
 import { useNavigate } from "react-router-dom";
-import { userId } from "../../constants/config";
 import { hasReportedUser } from "../../utils/useReportUtils";
 import ReportUserDialog from "./dialogs/ReportUserDialog";
 import MarkAsSoldDialog from "./dialogs/MarkAsSoldDialog";
@@ -17,7 +16,9 @@ const ChatHeader = ({ contact }) => {
   const { contacts } = useContacts();
   const navigate = useNavigate();
 
-  const currentUserId = parseInt(userId);
+  // Get user ID from localStorage
+  const userId = localStorage.getItem('userId');
+  const currentUserId = userId !== null && !isNaN(parseInt(userId)) ? parseInt(userId) : undefined;
 
   // Check if user has already been reported on component mount
   useEffect(() => {

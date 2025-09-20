@@ -1,23 +1,38 @@
 const db = require('../models');
+const Sequelize = db.Sequelize;
+const UserReport = db.user_report;
+const User = db.user;
+
+// ✅ Grouped report query
 exports.getAllReports = async (req, res) => {
   try {
-    const reports = await db.user_report.findAll({
-      attributes: {
-        exclude: ['reported_by_id', 'reported_user_id'] 
-      },
-      include: [
-        { model: db.user, as: 'reporter', attributes: ['id', 'username'] },
-        { model: db.user, as: 'reportedUser', attributes: ['id', 'username', 'report_count'] }
+    const reports = await UserReport.findAll({
+      attributes: [
+        'reported_user_id',
+        [Sequelize.fn('COUNT', Sequelize.col('reported_user_id')), 'report_count']
       ],
-      order: [['created_at', 'DESC']]
+      include: [
+        {
+          model: User,
+          as: 'reportedUser',
+          attributes: ['id', 'username', 'email']
+        }
+      ],
+      group: ['reported_user_id', 'reportedUser.id'],
+      order: [[Sequelize.fn('COUNT', Sequelize.col('reported_user_id')), 'DESC']]
     });
 
-    return res.status(200).json({ message: 'Reports fetched', data: reports });
+    return res.status(200).json({
+      message: 'Reported users with report counts',
+      data: reports
+    });
   } catch (error) {
     return res.status(500).json({ message: error.message || 'Server error' });
   }
 };
 
+
+// report an user
 exports.reportUser = async (req, res) => {
   try {
     const { reported_by_id, reported_user_id, reason } = req.body;

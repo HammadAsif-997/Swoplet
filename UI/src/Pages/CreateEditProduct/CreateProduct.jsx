@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from "react";
-import { BASE_URL, userId } from "../../constants/config";
+import { BASE_URL } from "../../constants/config";
 import { uploadImage } from "../../firebaseConfig";
 import { ToastContainer, toast } from "react-toastify"; // Import Toast
 import "react-toastify/dist/ReactToastify.css"; // Import toast styles
+import LocationAutocomplete from "../../components/Common/LocationAutocomplete";
 
 const MAX_IMAGES = 4;
 
 const CreateProduct = () => {
+  // Get user ID from localStorage
+  const userId = localStorage.getItem('userId');
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -309,19 +312,13 @@ const CreateProduct = () => {
                 <label htmlFor="location" className="block text-sm font-medium text-gray-700">
                   Location
                 </label>
-                <select
-                  id="location"
-                  name="location"
+                <LocationAutocomplete
                   value={formData.location}
-                  onChange={handleInputChange}
+                  onChange={(value) => setFormData({ ...formData, location: value })}
                   className="mt-1 block w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                  placeholder="Enter your location (e.g., Berlin, Munich, Hamburg)"
                   required
-                >
-                  <option value="">Select Location</option>
-                  <option value="berlin">Berlin</option>
-                  <option value="munich">Munich</option>
-                  <option value="hamburg">Hamburg</option>
-                </select>
+                />
               </div>
             </div>
 

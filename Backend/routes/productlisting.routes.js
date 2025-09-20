@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 
 const productlistingController = require('../controllers/productlisting.controller');
+const shareController = require('../controllers/share.controller');
 const validateRequest = require('../middleware/validateRequest');
 const {
   createListingValidation,
@@ -13,6 +14,9 @@ const {
 
 // ✅ GET all approved product listingss
 router.get('/products/approved', productlistingController.getApprovedProductListings);
+
+// ✅ GET product by ID (public shareable endpoint)
+router.get('/product/:id', shareController.getShareableProduct);
 
 // ✅ GET a single listing by ID (via query param)
 router.get(

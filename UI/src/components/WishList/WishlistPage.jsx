@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { BASE_URL, userId } from "../../constants/config";
+import { BASE_URL } from "../../constants/config";
 import LoadingState from "../Common/LoadingState";
 import ErrorState from "../Common/ErrorState";
 import ProductCard from "../Common/ProductCard";
@@ -7,6 +7,9 @@ import { useAuthRedirect } from '../../../hooks/useAuthRedirect';
 
 const Wishlist = () => {
     useAuthRedirect();
+    
+    // Get user ID from localStorage
+    const userId = localStorage.getItem('userId');
 
     const [favourites, setFavourites] = useState([]);
     const [loading, setLoading] = useState(true);

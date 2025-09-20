@@ -1,6 +1,5 @@
 import { useRef, useEffect } from 'react';
 import { useContacts } from '../../context/ContactContext';
-import { userId } from '../../constants/config';
 import ChatHeader from './ChatHeader';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';
@@ -8,7 +7,9 @@ import MessageInput from './MessageInput';
 const ChatPanel = () => {
   const { activeContactId, contacts, messages, sendMessage } = useContacts();
   const messagesEndRef = useRef(null);
-  const currentUserId = parseInt(userId);
+  // Get user ID from localStorage
+  const userId = localStorage.getItem('userId');
+  const currentUserId = userId !== null && !isNaN(parseInt(userId)) ? parseInt(userId) : null;
   
   // Find active contact
   const activeContact = activeContactId 

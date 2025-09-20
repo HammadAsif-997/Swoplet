@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { io } from 'socket.io-client';
-import { BASE_URL, SOCKET_URL, userId } from '../constants/config';
+import { BASE_URL, SOCKET_URL } from '../constants/config';
 import { useApiRequest } from '../../hooks/useApiRequest';
 
 const ContactContext = createContext(undefined);
@@ -19,7 +19,7 @@ const transformChatToContact = (chat, currentUserId) => {
     avatar: otherUser.image_url || "https://www.shareicon.net/data/512x512/2016/05/24/770117_people_512x512.png",
     lastMessage: chat.lastMessage?.content || '',
     lastMessageTime: chat.lastMessage?.created_at ? new Date(chat.lastMessage.created_at) : new Date(),
-    unreadCount: 0,
+    unreadCount: chat.unread_count || 0, // Include unread count from backend
     // Store original chat data for socket operations
     _originalChat: chat
   };
@@ -37,7 +37,12 @@ const transformMessage = (message, currentUserId) => {
 };
 
 export const ContactProvider = ({ children }) => {
-  const currentUserId = parseInt(userId) || 1;
+  // Get user ID from localStorage
+  const userId = localStorage.getItem('userId');
+  const currentUserId = userId && !isNaN(parseInt(userId)) ? parseInt(userId) : null;
+  if (currentUserId === null) {
+    throw new Error('User is not authenticated: userId missing or invalid in localStorage');
+  }
 
   const [contacts, setContacts] = useState([]);
   const [messages, setMessages] = useState({});
@@ -68,7 +73,7 @@ export const ContactProvider = ({ children }) => {
     ? contacts.find(c => c.id === activeContactId)?._originalChat
     : null;
 
-  const messagesUrl = activeChat ? `${BASE_URL}messages?chat_id=${activeChat.chat_id}` : null;
+  const messagesUrl = activeChat ? `${BASE_URL}messages?chat_id=${activeChat.chat_id}&user_id=${currentUserId}` : null;
   const { data: rawChats, loading: loadingChats, error: errorChats, makeRequest: fetchChats } = useApiRequest(`${BASE_URL}chats?user_id=${currentUserId}`);
   const { data: rawMessages, loading: loadingMessages, error: errorMessages, makeRequest: fetchMessages } = useApiRequest(messagesUrl);  // Connect WebSocket
   useEffect(() => {
@@ -77,15 +82,41 @@ export const ContactProvider = ({ children }) => {
     const newSocket = io(SOCKET_URL, {
       transports: ['websocket'],
       reconnectionAttempts: 5,
-      timeout: 20000
+      timeout: 20000,
+      // Add connection state management
+      autoConnect: true,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000
     });
     setSocket(newSocket);
 
     newSocket.on('connect', () => {
       console.log('✅ Connected to socket:', newSocket.id);
       newSocket.emit('join', { user_id: currentUserId });
-    }); newSocket.on('disconnect', () => {
-      console.log('❌ Disconnected from socket');
+    });
+
+    // Enhanced connection error handling
+    newSocket.on('connect_error', (error) => {
+      console.error('❌ Socket connection error:', error);
+    });
+
+    newSocket.on('disconnect', (reason) => {
+      console.log('❌ Disconnected from socket:', reason);
+      if (reason === 'io server disconnect') {
+        // Server disconnected, reconnect manually
+        newSocket.connect();
+      }
+    });
+
+    newSocket.on('reconnect', (attemptNumber) => {
+      console.log('🔄 Reconnected to socket after', attemptNumber, 'attempts');
+      // Re-join user room after reconnection
+      newSocket.emit('join', { user_id: currentUserId });
+    });
+
+    // Handle message errors
+    newSocket.on('message_error', (error) => {
+      console.error('❌ Message error:', error);
     });
 
     // Handle message sent confirmation
@@ -123,14 +154,14 @@ export const ContactProvider = ({ children }) => {
       const existingContact = contactsRef.current.find(c => c._originalChat?.chat_id === msg.chat_id);
 
       if (msg.chat_id === activeChat?.chat_id) {
-        // Message for currently active chat
+        // Message for currently active chat - don't increment unread count
         const transformedMessage = transformMessage(msg, currentUserId);
         setMessages((prev) => ({
           ...prev,
           [activeContactId]: [...(prev[activeContactId] || []), transformedMessage]
         }));
 
-        // Update contact's last message
+        // Update contact's last message without incrementing unread count (since chat is active)
         setContacts(prev =>
           prev.map(contact =>
             contact.id === activeContactId
@@ -151,7 +182,8 @@ export const ContactProvider = ({ children }) => {
               ? {
                 ...contact,
                 lastMessage: msg.content,
-                lastMessageTime: new Date(msg.created_at || Date.now())
+                lastMessageTime: new Date(msg.created_at || Date.now()),
+                unreadCount: (contact.unreadCount || 0) + 1 // Increment unread count safely
               }
               : contact
           )
@@ -196,6 +228,27 @@ export const ContactProvider = ({ children }) => {
           console.error('Error refreshing chats:', error);
         });
       }
+    });
+
+    // Handle unread count updates
+    newSocket.on('unread_count_update', (data) => {
+      console.log('Unread count update:', data);
+      const { chat_id, increment, reset_chat } = data;
+
+      setContacts(prev => 
+        prev.map(contact => {
+          if (contact._originalChat?.chat_id === chat_id) {
+            if (reset_chat) {
+              return { ...contact, unreadCount: 0 };
+            } else if (increment) {
+              // Ensure unreadCount is always a number and never negative
+              const currentCount = contact.unreadCount || 0;
+              return { ...contact, unreadCount: Math.max(0, currentCount + increment) };
+            }
+          }
+          return contact;
+        })
+      );
     }); return () => {
       newSocket.disconnect();
     };
@@ -249,6 +302,15 @@ export const ContactProvider = ({ children }) => {
       return;
     }
 
+    // INSTANTLY clear unread count for immediate UI feedback
+    setContacts(prev =>
+      prev.map(contact =>
+        contact.id === activeContactId
+          ? { ...contact, unreadCount: 0 }
+          : contact
+      )
+    );
+
     fetchMessages().then(({ data }) => {
       const msgs = normalize(data);
       const transformedMessages = msgs.map(msg => transformMessage(msg, currentUserId));
@@ -256,13 +318,17 @@ export const ContactProvider = ({ children }) => {
         ...prev,
         [activeContactId]: transformedMessages
       }));
-    });
-  }, [activeChat, fetchMessages, activeContactId, currentUserId]);
 
-  const filteredContacts = contacts.filter(contact =>
-    contact.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    contact.lastMessage?.toLowerCase().includes(searchTerm.toLowerCase())
-  ); 
+      // Mark messages as read via socket (non-blocking)
+      if (socket) {
+        socket.emit('mark_messages_read', {
+          user_id: currentUserId,
+          chat_id: activeChat.chat_id
+        });
+      }
+    });
+  }, [activeChat, fetchMessages, activeContactId, currentUserId, socket]);
+
   const sendMessage = useCallback((content) => {
     if (!activeChat || !content.trim() || !socket) return;
 
@@ -305,19 +371,50 @@ export const ContactProvider = ({ children }) => {
     );
   }, [activeChat, currentUserId, socket, activeContactId]);
 
+  // Memoize filtered contacts to prevent unnecessary recalculations
+  const filteredContacts = useMemo(() => 
+    contacts.filter(contact =>
+      contact.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      contact.lastMessage?.toLowerCase().includes(searchTerm.toLowerCase())
+    ), [contacts, searchTerm]
+  );
+
+  // Memoize total unread count
+  const totalUnreadCount = useMemo(() => 
+    contacts.reduce((sum, contact) => sum + (contact.unreadCount || 0), 0),
+    [contacts]
+  );
+
+  // ✅ Enhanced setActiveContactId with instant unread clearing
+  const setActiveContactIdWithClear = useCallback((contactId) => {
+    // Instantly clear unread count for immediate visual feedback
+    if (contactId) {
+      setContacts(prev =>
+        prev.map(contact =>
+          contact.id === contactId
+            ? { ...contact, unreadCount: 0 }
+            : contact
+        )
+      );
+    }
+    setActiveContactId(contactId);
+  }, []);
+
   return (
     <ContactContext.Provider
       value={{
         contacts,
         messages,
         activeContactId,
-        setActiveContactId,
+        setActiveContactId: setActiveContactIdWithClear, // ✅ Use enhanced version
         searchTerm,
         setSearchTerm,
         filteredContacts,
         sendMessage,
         loading: loadingChats,
-        error: errorChats
+        error: errorChats,
+        socket, // Expose socket for Header component
+        totalUnreadCount // Use memoized total unread count
       }}
     >
       {children}

@@ -9,4 +9,6 @@ router.get('/seller-to-review', sellerreviewController.getPendingSellerReviews);
 // POST /add-seller-review
 router.post('/add-seller-review', sellerreviewController.addSellerReview);
 
+router.get('/seller-review/:seller_id', sellerreviewController.getSellerReviews);
+
 module.exports = router; 

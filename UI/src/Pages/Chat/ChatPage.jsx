@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { io } from "socket.io-client";
-import { BASE_URL, SOCKET_URL, userId } from "../../constants/config";
+import { BASE_URL, SOCKET_URL } from "../../constants/config";
 import { useApiRequest } from "../../../hooks/useApiRequest";
 import ChatList from "./components/Chat/ChatList";
 import ChatMessages from "./components/messages/ChatMessages";
@@ -10,6 +10,8 @@ const normalize = (payload) =>
   Array.isArray(payload) ? payload : payload?.data ?? [];
 
 export default function ChatPage() {
+  // Get user ID from localStorage
+  const userId = localStorage.getItem('userId');
   const currentUserId = parseInt(userId) || 1;
   useAuthRedirect();
   const [chats, setChats] = useState([]);

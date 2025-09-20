@@ -3,6 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { useApiRequest } from "../../../hooks/useApiRequest";
 import { BASE_URL } from "../../constants/config";
 import { useAuthRedirect } from '../../../hooks/useAuthRedirect';
+import { uploadImage } from "../../firebaseConfig"; // Import the Firebase upload function
+import { ToastContainer, toast } from "react-toastify"; // Import Toast
+import "react-toastify/dist/ReactToastify.css"; // Import toast styles
 
 const UserProfile = () => {
   useAuthRedirect();
@@ -40,54 +43,75 @@ const UserProfile = () => {
         "Content-Type": "application/json",
       },
     });
-    // eslint-disable-next-line
   }, [navigate]);
+
+  useEffect(() => {
+    if (profileData) {
+      setProfileImage(profileData.image_url || "https://www.shareicon.net/data/512x512/2016/05/24/770117_people_512x512.png");
+      setBio(profileData.bio || "");
+    }
+  }, [profileData]);
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file && file.type.startsWith("image/")) {
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setProfileImage(reader.result);
-      };
+      reader.onloadend = () => setProfileImage(reader.result);
       reader.readAsDataURL(file);
       setImageFile(file);
     }
   };
 
-  const handleSubmit = async () => {
-    if (!imageFile || !bio) {
-      setUpdateSuccess(false);
-      return;
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+  
+    setUpdateSuccess(false);
+  
+    // Step 1: Upload the image to Firebase Storage if an image is selected
+    let imageUrl = profileImage; // Default to the current image URL if no new image is selected
+  
+    if (imageFile) {
+      const uploadedImageUrl = await uploadImage([imageFile]); // Upload the image to Firebase
+      if (Array.isArray(uploadedImageUrl)) {
+        imageUrl = uploadedImageUrl[0]; // Get the first image URL from the response
+      } else {
+        toast.error("Error uploading image. Please try again.");
+        return; // Exit if the upload fails
+      }
     }
-    const formData = new FormData();
-    if (imageFile) formData.append("profileImage", imageFile);
-    if (bio) formData.append("bio", bio);
+  
+    // Step 2: Prepare the data to send to the backend
+    const formData = {
+      bio: bio,         // Bio text
+      image_url: imageUrl,  // Image URL from Firebase
+    };
+  
+    // Step 3: Send the data as JSON to the backend
     const { success } = await updateProfile({
       url: `${BASE_URL}user`,
       method: "PUT",
-      body: formData,
+      body: formData,   // Send the data as a JSON string
       headers: {
         Authorization: `Bearer ${localStorage.getItem("token")}`,
+        "Content-Type": "application/json", // Ensure the request is JSON
       },
     });
+  
+    // Step 4: Handle success or failure response
     if (success) {
       setUpdateSuccess(true);
+      toast.success("Profile updated successfully!");
       setTimeout(() => setUpdateSuccess(false), 3000);
+    } else {
+      toast.error("Error updating profile. Please try again.");
     }
   };
+  
 
-  const handleViewListings = () => {
-    navigate("/mylistings");
-  };
-
-  const handleCancel = () => {
-    navigate("/");
-  };
-
-  const handleRatingSellers = () => {
-    navigate("/to-rate");
-  };
+  const handleViewListings = () => navigate("/mylistings");
+  const handleCancel = () => navigate("/");
+  const handleRatingSellers = () => navigate("/to-rate");
+  const handleViewWishlist = () => navigate("/wishlist");
 
   return (
     <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
@@ -105,24 +129,10 @@ const UserProfile = () => {
                   />
                 </div>
                 <label className="absolute bottom-0 right-0 bg-white rounded-full p-2 cursor-pointer hover:bg-gray-100 transition-colors duration-300 shadow-md">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5 text-blue-600"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z"
-                      clipRule="evenodd"
-                    />
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-600" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" />
                   </svg>
-                  <input
-                    type="file"
-                    className="hidden"
-                    accept="image/*"
-                    onChange={handleImageChange}
-                  />
+                  <input type="file" className="hidden" accept="image/*" onChange={handleImageChange} />
                 </label>
               </div>
             </div>
@@ -137,50 +147,23 @@ const UserProfile = () => {
                   <div className="h-8 bg-gray-200 rounded w-48 mx-auto mb-2"></div>
                   <div className="h-4 bg-gray-200 rounded w-32 mx-auto"></div>
                 </div>
-              ) : profileData && profileData.username && profileData.email ? (
+              ) : profileData ? (
                 <>
-                  <h1 className="text-2xl font-bold text-gray-900">
-                    {profileData.username}
-                  </h1>
+                  <h1 className="text-2xl font-bold text-gray-900">{profileData.username}</h1>
                   <p className="text-gray-500 mt-1">{profileData.email}</p>
-                  {profileData.bio && (
-                    <p className="text-gray-700 mt-2">Bio: {profileData.bio}</p>
-                  )}
-                  {profileData.image_url && (
-                    <img
-                      src={profileData.image_url}
-                      alt="Profile"
-                      className="mx-auto mt-4 w-32 h-32 rounded-full object-cover border-2 border-blue-600"
-                    />
-                  )}
                 </>
               ) : (
-                <div className="text-red-600 text-center mb-4">
-                  User data not available.
-                </div>
+                <div className="text-red-600 text-center mb-4">User data not available.</div>
               )}
-              {profileError && (
-                <div className="text-red-600 text-center mb-4">
-                  {profileError}
-                </div>
-              )}
-              {updateSuccess && (
-                <div className="text-green-600 text-center mb-4 font-semibold">
-                  Profile updated successfully!
-                </div>
-              )}
-              {updateError && (
-                <div className="text-red-600 text-center mb-4 font-semibold">
-                  {updateError}
-                </div>
-              )}
+
+              {/* {profileError && <div className="text-red-600 text-center mb-4">{profileError}</div>} */}
+              {/* {updateSuccess && <div className="text-green-600 text-center mb-4 font-semibold">Profile updated successfully!</div>} */}
+              {/* {updateError && <div className="text-red-600 text-center mb-4 font-semibold">{updateError}</div>} */}
             </div>
 
             {/* Bio Section */}
             <div className="mb-8">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Bio
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Bio</label>
               <textarea
                 value={bio}
                 onChange={(e) => setBio(e.target.value)}
@@ -209,57 +192,23 @@ const UserProfile = () => {
 
             {/* Quick Actions */}
             <div className="flex justify-center gap-4">
-              <button
-                  onClick={handleViewListings}
-                  className="flex items-center gap-2 px-6 py-3 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors duration-200 font-medium shadow-sm"
-              >
-                <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                >
-                  <path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z"/>
-                  <path
-                      fillRule="evenodd"
-                      d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"
-                      clipRule="evenodd"
-                  />
+              <button onClick={handleViewListings} className="flex items-center gap-2 px-6 py-3 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors duration-200 font-medium shadow-sm">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z" />
+                  <path fillRule="evenodd" d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clipRule="evenodd" />
                 </svg>
                 View Listings
               </button>
-              <button
-                  className="flex items-center gap-2 px-6 py-3 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors duration-200 font-medium shadow-sm">
-                <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                >
-                  <path
-                      fillRule="evenodd"
-                      d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z"
-                      clipRule="evenodd"
-                  />
+              <button onClick={handleViewWishlist} className="flex items-center gap-2 px-6 py-3 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors duration-200 font-medium shadow-sm">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
                 </svg>
                 Wishlist
               </button>
-              <button
-                  onClick={handleRatingSellers}
-                  className="flex items-center gap-2 px-6 py-3 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors duration-200 font-medium shadow-sm"
-              >
-                <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                >
-                  <path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z"/>
-                  <path
-                      fillRule="evenodd"
-                      d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"
-                      clipRule="evenodd"
-                  />
+              <button onClick={handleRatingSellers} className="flex items-center gap-2 px-6 py-3 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors duration-200 font-medium shadow-sm">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z" />
+                  <path fillRule="evenodd" d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clipRule="evenodd" />
                 </svg>
                 Rate the sellers
               </button>
@@ -267,7 +216,11 @@ const UserProfile = () => {
           </div>
         </div>
       </div>
+      {/* Toast Notifications */}
+      <ToastContainer />
     </div>
+
+    
   );
 };
 

@@ -1,26 +1,74 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import DropdownMenu from "../Marketplace/DropdownMenu";
+import { useContacts } from "../../context/ContactContext";
 
 function Header() {
   const navigate = useNavigate();
   const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem("userId"));
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // Safely get context only when needed
+  let contextData = null;
+  try {
+    // Only use context if we're in a route that provides it
+    if (window.location.pathname === '/messages') {
+      contextData = useContacts();
+    }
+  } catch (error) {
+    // Context not available, use fallback
+    contextData = null;
+  }
 
   useEffect(() => {
     const handleStorageChange = () => {
       setIsLoggedIn(!!localStorage.getItem("userId"));
     };
 
-    // Listen for changes across tabs/windows
     window.addEventListener("storage", handleStorageChange);
-
-    // Run once on mount
     handleStorageChange();
 
     return () => {
       window.removeEventListener("storage", handleStorageChange);
     };
   }, []);
+
+  // 🔔 Fetch unread messages count
+  useEffect(() => {
+    const userId = localStorage.getItem("userId");
+    if (!userId) {
+      setUnreadCount(0);
+      return;
+    }
+
+    // Use real-time count if available, otherwise fall back to API
+    if (contextData && contextData.totalUnreadCount !== undefined) {
+      setUnreadCount(contextData.totalUnreadCount);
+      
+      // No need for additional socket listeners - context handles it
+      return;
+    } else {
+      // Fallback to API polling for other pages or when context unavailable
+      const base = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api").replace(/\/+$/, "");
+
+      const fetchUnread = async () => {
+        try {
+          const res = await fetch(`${base}/messages/unread-count?user_id=${encodeURIComponent(userId)}`);
+          if (!res.ok) return;
+
+          const json = await res.json();
+          const count = json?.data?.count || 0;
+          setUnreadCount(count);
+        } catch (err) {
+          console.error("Failed to fetch unread count", err);
+        }
+      };
+
+      fetchUnread();
+      const interval = setInterval(fetchUnread, 10000); // refresh every 10s
+      return () => clearInterval(interval);
+    }
+  }, [isLoggedIn, contextData?.totalUnreadCount]);
 
   const handleCreateClick = () => navigate("/create-product");
   const handleLoginClick = () => navigate("/login");
@@ -65,6 +113,31 @@ function Header() {
               >
                 Login
               </button>
+            )}
+
+            {/* 💬 Blue Chat Icon with Unread Badge */}
+            {isLoggedIn && (
+              <div
+                className="relative cursor-pointer"
+                onClick={() => navigate("/messages")}
+                title="Messages"
+              >
+                {/* Blue chat bubble icon */}
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="w-7 h-7 text-blue-600"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path d="M18 13V5a2 2 0 00-2-2H4a2 2 0 00-2 2v8a2 2 0 002 2h2v3l4-3h6a2 2 0 002-2z" />
+                </svg>
+
+                {unreadCount > 0 && (
+                  <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
+                    {unreadCount > 99 ? "99+" : unreadCount}
+                  </span>
+                )}
+              </div>
             )}
 
             {isLoggedIn && (

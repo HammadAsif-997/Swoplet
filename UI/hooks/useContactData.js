@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useApiRequest } from './useApiRequest';
-import { BASE_URL, userId } from '../src/constants/config';
+import { BASE_URL } from '../src/constants/config';
 
 export function useContactData() {
   const [contacts, setContacts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-
+  const userId = localStorage.getItem('userId');
   const { makeRequest } = useApiRequest();
 
   useEffect(() => {
