@@ -10,9 +10,9 @@ This project is developed as part of the Global Distributed Software Development
 
 | Name             | Email                                          | GitHub Username     | Role                |
 |------------------|------------------------------------------------|---------------------|---------------------|
-| Hamza Butt       | muhammad-hamza.butt@informatik.hs-fulda.de     | @hamza-butt         | Team Lead           |
+| Hamza Butt       | muhammad-hamza.butt@informatik.hs-fulda.de     | @hamza-butt         | Frontend Developer  |
 | Karan Patel      | karan-hiteshkumar.patel@informatik.hs-fulda.de | @PatelKaran0104     | Github Lead         |
 | Pooja Vayal      | pooja.puthu-vayal@informatik.hs-fulda.de       | @Poojapv16          | Backend Lead        |
 | Akhil  Sajan     | akhil.sajan@informatik.hs-fulda.de             | @akhxls             | Frontend Lead       |   
-| Hammad Asif      | hammad.asif@informatik.hs-fulda.de             | @HammadAsif-997     | Frontend Developer  |
+| Hammad Asif      | hammad.asif@informatik.hs-fulda.de             | @HammadAsif-997     | Team Lead           |
 | Hasara Koralege  | hasara-nimashi.koralege@informatik.hs-fulda.de | @HNK-ENG            | Backend Developer   |
