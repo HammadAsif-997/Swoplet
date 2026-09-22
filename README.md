@@ -123,13 +123,13 @@ This wasn't just "build and ship" — the team ran a full QA and usability proce
 The deployment is no longer live, but here's the finished product from our final milestone submission:
 
 **Search & Filter Results**
-![Search results page](swoplet_screenshots/search-results-page.png)
+![Search results page](search-results-page.png)
 
 **Product Detail Page** — including the AI price prediction widget
-![Product detail page](swoplet_screenshots/product-detail-page.png)
+![Product detail page](product-detail-page.png)
 
 **Real-time Messaging**
-![Messaging page](swoplet_screenshots/messaging-page.png)
+![Messaging page](messaging-page.png)
 
 Our original hand-drawn wireframes (Home, Login, Profile, Create Listing, My Listings, Marketplace/filters, Chat, Registration) used to plan the UI before building it in React are in `/Milestones/wireframes`.
 
