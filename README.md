@@ -6,18 +6,7 @@ A full-stack, university-restricted marketplace web application built for the **
 
 ---
 
-## 👥 Team
-
-| Name | Role |
-|---|---|
-| **Hammad Asif** | **Team Lead** |
-| Pooja Puthu Vayal | Backend Lead |
-| Akhil Sajan | Frontend Lead |
-| Hamza Butt | Frontend Developer |
-| Karan Patel | GitHub Master |
-| Hasara Koralege | Backend Developer |
-
-## Team Members
+## 👥 Team Members
 
 | Name             | Email                                          | GitHub Username     | Role                |
 |------------------|------------------------------------------------|---------------------|---------------------|
